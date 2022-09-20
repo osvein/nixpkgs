@@ -8,43 +8,49 @@
 , gettext
 , itstool
 , libxslt
-, gexiv2
+, gexiv2, rawSupport ? true
 , tracker
 , meson
 , ninja
 , pkg-config
 , vala
 , wrapGAppsHook
-, bzip2
+#, bzip2
 , dbus
-, evolution-data-server
-, exempi
-, giflib
+#, evolution-data-server
+, exempi, xmpSupport ? true
+, giflib, gifSupport ? true
 , glib
 , gnome
-, gst_all_1
+, gst_all_1, withGstreamer ? true
 , icu
 , json-glib
-, libcue
-, libexif
-, libgsf
-, libgxps
-, libiptcdata
-, libjpeg
-, libosinfo
-, libpng
+, libcue, cueSupport ? true
+, libexif, exifSupport ? true
+, libgsf, gsfSupport ? true
+, libgxps, xpsSupport ? true
+, libiptcdata, iptcSupport ? true
+, libjpeg, jpegSupport ? true
+, libosinfo, isoSupport ? true
+, libpng, pngSupport ? true
 , libseccomp
-, libsoup
-, libtiff
-, libuuid
-, libxml2
-, networkmanager
-, poppler
-, systemd
-, taglib
-, upower
-, totem-pl-parser
+#, libsoup
+, libtiff, tiffSupport ? true
+#, libuuid,
+, util-linux
+, libxml2, xmlSupport ? true
+, networkmanager, withNetworkManager ? stdenv.isLinux
+, poppler, pdfSupport ? true
+, systemd, withSystemd ? stdenv.isLinux
+#, taglib
+, upower, withUpower ? stdenv.isLinux
+, totem-pl-parser, playlistSupport ? true
 , e2fsprogs
+
+# libgrss is unmaintained and has no new releases since 2015, and an open
+# security issue since then. Despite a patch now being available in nixpkgs,
+# we're opting to be safe due to the general state of the project
+, libgrss, rssSupport ? false
 }:
 
 stdenv.mkDerivation rec {
@@ -82,60 +88,69 @@ stdenv.mkDerivation rec {
     wrapGAppsHook
   ];
 
-  # TODO: add libenca, libosinfo
   buildInputs = [
-    bzip2
+    #bzip2
     dbus
-    exempi
-    giflib
     glib
-    gexiv2
     totem-pl-parser
     tracker
+    icu
+    json-glib
+    #libsoup
+    #libuuid
+    util-linux
+    #taglib
+  ] ++ lib.optional xmpSupport exempi
+    ++ lib.optional gifSupport giflib
+    ++ lib.optional rawSupport gexiv2
+    ++ lib.optional cueSupport libcue
+    ++ lib.optional exifSupport libexif
+    ++ lib.optional gsfSupport libgsf
+    ++ lib.optional xpsSupport libgxps
+    ++ lib.optional iptcSupport libiptcdata
+    ++ lib.optional jpegSupport libjpeg
+    ++ lib.optional isoSupport libosinfo
+    ++ lib.optional pngSupport libpng
+    ++ lib.optional tiffSupport libtiff
+    ++ lib.optional xmlSupport libxml2
+    ++ lib.optional pdfSupport poppler
+    ++ lib.optional playlistSupport totem-pl-parser
+    ++ lib.optionals withGstreamer [
     gst_all_1.gst-plugins-base
     gst_all_1.gst-plugins-good
     gst_all_1.gst-plugins-bad
     gst_all_1.gst-plugins-ugly
     gst_all_1.gstreamer
     gst_all_1.gst-libav
-    icu
-    json-glib
-    libcue
-    libexif
-    libgsf
-    libgxps
-    libiptcdata
-    libjpeg
-    libosinfo
-    libpng
-    libsoup
-    libtiff
-    libuuid
-    libxml2
-    poppler
-    taglib
-  ] ++ lib.optionals stdenv.isLinux [
-    evolution-data-server
-    libseccomp
-    networkmanager
-    systemd
-    upower
-  ] ++ lib.optionals stdenv.isDarwin [
+  ] ++ lib.optional stdenv.isLinux libseccomp
+    ++ lib.optional withNetworkManager networkmanager
+    ++ lib.optional withSystemd systemd
+    ++ lib.optional withUpower upower
+    ++ lib.optionals stdenv.isDarwin [
     e2fsprogs
   ];
 
   mesonFlags = [
     # TODO: tests do not like our sandbox
     "-Dfunctional_tests=false"
-
-    # libgrss is unmaintained and has no new releases since 2015, and an open
-    # security issue since then. Despite a patch now being availab, we're opting
-    # to be safe due to the general state of the project
-    "-Dminer_rss=false"
-  ] ++ lib.optionals (!stdenv.isLinux) [
-    "-Dnetwork_manager=disabled"
-    "-Dsystemd_user_services=false"
-  ];
+  ] ++ lib.optional (!rssSupport) "-Dminer_rss=false"
+    ++ lib.optional (!cueSupport) "-Dcue=disabled"
+    ++ lib.optional (!exifSupport) "-Dexif=disabled"
+    ++ lib.optional (!gifSupport) "-Dgif=disabled"
+    ++ lib.optional (!gsfSupport) "-Dgsf=disabled"
+    ++ lib.optional (!iptcSupport) "-Diptc=disabled"
+    ++ lib.optional (!isoSupport) "-Diso=disabled"
+    ++ lib.optional (!jpegSupport) "-Djpeg=disabled"
+    ++ lib.optional (!pdfSupport) "-Dpdf=disabled"
+    ++ lib.optional (!playlistSupport) "-Dplaylist=disabled"
+    ++ lib.optional (!pngSupport) "-Dpng=disabled"
+    ++ lib.optional (!rawSupport) "-Draw=disabled"
+    ++ lib.optional (!tiffSupport) "-Dtiff=disabled"
+    ++ lib.optional (!xmlSupport) "-Dxml=disabled"
+    ++ lib.optional (!xmpSupport) "-Dxmp=disabled"
+    ++ lib.optional (!xpsSupport) "-Dxps=disabled"
+    ++ lib.optional (!withNetworkManager) "-Dnetwork_manager=disabled"
+    ++ lib.optional (!withSystemd) "-Dsystemd_user_services=false";
 
   postInstall = ''
     glib-compile-schemas "$out/share/glib-2.0/schemas"
